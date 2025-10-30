@@ -57,3 +57,9 @@ app.listen(PORT, async () => {
     console.error('❌ Error ensuring countries table:', err.message);
   }
 });
+// Prevent Railway from killing the app
+process.on('SIGTERM', () => {
+  console.log('👋 Received SIGTERM. Shutting down gracefully...');
+});
+
+setInterval(() => {}, 1 << 30); // keep Node.js event loop active
