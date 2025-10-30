@@ -57,3 +57,17 @@ export async function upsertCountriesBulk(countries) {
     console.error('❌ Error inserting countries:', err);
   }
 }
+export async function getAllCountries() {
+  const [rows] = await pool.query('SELECT * FROM countries');
+  return rows;
+}
+
+export async function getCountryByName(name) {
+  const [rows] = await pool.query('SELECT * FROM countries WHERE name = ?', [name]);
+  return rows[0] || null;
+}
+
+export async function getStatus() {
+  const [rows] = await pool.query('SELECT COUNT(*) AS total FROM countries');
+  return { total_countries: rows[0].total };
+}
