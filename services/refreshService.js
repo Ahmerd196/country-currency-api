@@ -4,7 +4,7 @@ import { upsertCountriesBulk } from '../models/countryModel.js';
 import Jimp from 'jimp';
 import fs from 'fs';
 
-const IMAGE_PATH = 'cache/summary.png';
+const IMAGE_PATH = process.env.SUMMARY_IMAGE_PATH || 'cache/summary.png';
 
 function estimateGDP(population, exchangeRate) {
   const baseFactor = 5000;
@@ -13,6 +13,7 @@ function estimateGDP(population, exchangeRate) {
 
 export async function refreshCountriesData() {
   try {
+    // Fetch countries and exchange data
     const { data: countriesData } = await axios.get('https://restcountries.com/v2/all?fields=name,capital,region,population,flag,currencies');
     const { data: ratesData } = await axios.get('https://open.er-api.com/v6/latest/USD');
     const rates = ratesData.rates || {};
@@ -20,18 +21,20 @@ export async function refreshCountriesData() {
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     const formattedCountries = countriesData.map(country => {
-      const currencyCode = country.currencies ? Object.keys(country.currencies)[0] : null;
-      const exchangeRate = currencyCode ? rates[currencyCode] : 1;
+      const currency = Array.isArray(country.currencies) ? country.currencies[0] : null;
+      const currencyCode = currency?.code || null;
+      const exchangeRate = currencyCode && rates[currencyCode] ? rates[currencyCode] : 1;
+
       return {
-        name: country.name.common,
-        capital: Array.isArray(country.capital) ? country.capital[0] : country.capital || null,
+        name: country.name || null,
+        capital: country.capital || null,
         region: country.region || null,
         population: country.population || 0,
+        flag: country.flag || null,
         currency_code: currencyCode,
-        exchange_rate: exchangeRate,
-        estimated_gdp: estimateGDP(country.population, exchangeRate),
-        flag_url: country.flags?.png || null,
-        last_refreshed_at: now
+        currency_name: currency?.name || null,
+        currency_symbol: currency?.symbol || null,
+        estimated_gdp: estimateGDP(country.population, exchangeRate)
       };
     });
 
@@ -46,19 +49,22 @@ export async function refreshCountriesData() {
     image.print(font, 20, 20, `Total countries: ${formattedCountries.length}`);
     image.print(small, 20, 60, `Last refreshed: ${now}`);
 
-    const top5 = formattedCountries.sort((a,b) => b.estimated_gdp - a.estimated_gdp).slice(0,5);
+    const top5 = formattedCountries
+      .filter(c => c.name && c.estimated_gdp)
+      .sort((a, b) => b.estimated_gdp - a.estimated_gdp)
+      .slice(0, 5);
+
     let y = 100;
     top5.forEach((c, idx) => {
-      image.print(small, 40, y, `${idx+1}. ${c.name} — ${c.estimated_gdp.toFixed(2)}`);
+      image.print(small, 40, y, `${idx + 1}. ${c.name} — ${c.estimated_gdp.toFixed(2)}`);
       y += 40;
     });
 
     await image.writeAsync(IMAGE_PATH);
 
-    return { message: 'Countries refreshed', total_countries: formattedCountries.length, last_refreshed_at: now };
-
+    return { message: 'Countries refreshed successfully', total_countries: formattedCountries.length, last_refreshed_at: now };
   } catch (error) {
-    console.error('Error refreshing countries:', error.message);
-    throw error;
+    console.error('❌ Error refreshing countries:', error);
+    throw new Error(error.message || 'Failed to refresh countries');
   }
 }
