@@ -1,40 +1,9 @@
-// import express from 'express';
-// import dotenv from 'dotenv';
-// import morgan from 'morgan';
-// import helmet from 'helmet';
-// import cors from 'cors';
-// import countriesRouter from './routes/countries.js';
-
-// dotenv.config();
-// const app = express();
-// app.set('etag', false);
-
-// app.use(helmet());
-// app.use(cors());
-// app.use(morgan('dev'));
-// app.use(express.json());
-
-// app.use('/countries', countriesRouter);
-
-// // Root status redirect
-// app.get('/status', (req, res) => {
-//   res.redirect('/countries/status/info');
-// });
-
-// // Global 404
-// app.use((req, res) => {
-//   res.status(404).json({ error: 'Not found' });
-// });
-
-// const PORT = process.env.PORT || 3000;
-// app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
-
 import express from 'express';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
 import helmet from 'helmet';
 import cors from 'cors';
-import { pool } from './db.js';  // <-- make sure db.js exports your MySQL pool
+import { pool } from './db.js';
 import countriesRouter from './routes/countries.js';
 
 dotenv.config();
@@ -46,9 +15,31 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 
-// 🧩 Ensure countries table exists (for Railway)
-(async () => {
+// Routes
+app.use('/countries', countriesRouter);
+
+// Root status redirect
+app.get('/status', (req, res) => {
+  res.redirect('/countries/status/info');
+});
+
+// Default root route (so Railway knows app is alive)
+app.get('/', (req, res) => {
+  res.json({ message: '🌍 Country Currency API is running successfully!' });
+});
+
+// Global 404
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+const PORT = process.env.PORT || 8080;
+
+// ✅ Wait before connecting to MySQL so Railway DB can boot up
+app.listen(PORT, async () => {
+  console.log(`🚀 Server listening on port ${PORT}`);
   try {
+    await new Promise(resolve => setTimeout(resolve, 5000)); // wait 5 seconds
     await pool.query(`
       CREATE TABLE IF NOT EXISTS countries (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -63,21 +54,6 @@ app.use(express.json());
     `);
     console.log('✅ Table "countries" ready');
   } catch (err) {
-    console.error('❌ Error ensuring countries table:', err);
+    console.error('❌ Error ensuring countries table:', err.message);
   }
-})();
-
-app.use('/countries', countriesRouter);
-
-// Root status redirect
-app.get('/status', (req, res) => {
-  res.redirect('/countries/status/info');
 });
-
-// Global 404
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
