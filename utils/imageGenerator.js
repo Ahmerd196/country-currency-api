@@ -1,35 +1,37 @@
 // utils/imageGenerator.js
-import Jimp from 'jimp';
+import * as Jimp from 'jimp';
 import { pool } from '../db.js';
 import dotenv from 'dotenv';
+import fs from 'fs';
 dotenv.config();
 
 const IMAGE_PATH = process.env.SUMMARY_IMAGE_PATH || 'cache/summary.png';
 
 export async function generateSummaryImage() {
-  // fetch top 5 by estimated_gdp and total count
-  const [[{total}]] = await pool.query(`SELECT COUNT(*) AS total FROM countries`);
-  // const [rows] = await pool.query(`SELECT name, estimated_gdp FROM countries WHERE estimated_gdp IS NOT NULL ORDER BY estimated_gdp DESC LIMIT 5`);
+  // Fetch total and top 5 countries by estimated GDP
+  const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM countries`);
   const [rows] = await pool.query(`
-  SELECT name, estimated_gdp
-  FROM countries
-  WHERE estimated_gdp IS NOT NULL AND name IS NOT NULL
-  ORDER BY estimated_gdp DESC
-  LIMIT 5
-`);
-
+    SELECT name, estimated_gdp
+    FROM countries
+    WHERE estimated_gdp IS NOT NULL AND name IS NOT NULL
+    ORDER BY estimated_gdp DESC
+    LIMIT 5
+  `);
 
   const width = 1000;
   const height = 600;
-  const image = new Jimp(width, height, 0xffffffff); // white background
 
-  const font = await Jimp.loadFont(Jimp.FONT_SANS_32_BLACK);
-  const small = await Jimp.loadFont(Jimp.FONT_SANS_16_BLACK);
+  // ✅ Create image using the new Jimp API
+  const image = await Jimp.Jimp.create(width, height, '#FFFFFFFF'); // white background
 
+  // ✅ Load fonts correctly
+  const font = await Jimp.Jimp.loadFont(Jimp.Jimp.FONT_SANS_32_BLACK);
+  const small = await Jimp.Jimp.loadFont(Jimp.Jimp.FONT_SANS_16_BLACK);
+
+  // ✅ Print text
   image.print(font, 20, 20, `Total countries: ${total}`);
   image.print(small, 20, 80, `Last refreshed at: ${new Date().toISOString()}`);
-
-  image.print(font, 20, 130, 'Top 5 by estimated GDP:');
+  image.print(font, 20, 140, 'Top 5 by estimated GDP:');
 
   let y = 190;
   rows.forEach((r, idx) => {
@@ -39,13 +41,15 @@ export async function generateSummaryImage() {
     y += 40;
   });
 
-
+  // ✅ Resize (optional)
   await image.resize(width, height);
 
-  // ensure cache folder exists
-  const fs = await import('fs');
-  const path = IMAGE_PATH.split('/').slice(0, -1).join('/') || '.';
-  if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
+  // ✅ Ensure cache directory exists
+  const dir = IMAGE_PATH.split('/').slice(0, -1).join('/') || '.';
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
+  // ✅ Save image
   await image.writeAsync(IMAGE_PATH);
+
+  console.log(`✅ Summary image generated at ${IMAGE_PATH}`);
 }
