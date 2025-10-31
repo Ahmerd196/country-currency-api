@@ -41,37 +41,29 @@ router.get('/', async (req, res) => {
  *   - currency (e.g., /countries?currency=USD)
  *   - both (e.g., /countries?region=Asia&currency=CNY)
  */
-router.get('/', async (req, res) => {
-  try {
-    const { region, currency } = req.query;
+// Get all countries with optional filters
+export async function getAllCountries(filters = {}) {
+  // filters: { region, currency }
+  let query = 'SELECT * FROM countries WHERE 1=1';
+  const params = [];
 
-    let query = 'SELECT * FROM countries WHERE 1=1';
-    const params = [];
-
-    if (region) {
-      query += ' AND region = ?';
-      params.push(region);
-    }
-
-    if (currency) {
-      query += ' AND currency_code = ?';
-      params.push(currency);
-    }
-
-    query += ' ORDER BY name ASC';
-
-    const [rows] = await pool.query(query, params);
-
-    if (!rows.length) {
-      return res.status(404).json({ message: 'No countries found for given filters' });
-    }
-
-    res.json(rows);
-  } catch (err) {
-    console.error('Error fetching countries:', err);
-    res.status(500).json({ error: 'Internal server error', details: err.message });
+  if (filters.region) {
+    // case-insensitive exact match
+    query += ' AND LOWER(region) = LOWER(?)';
+    params.push(filters.region);
   }
-})
+
+  if (filters.currency) {
+    // exact match on currency_code (you can also lower-case if needed)
+    query += ' AND currency_code = ?';
+    params.push(filters.currency);
+  }
+
+  query += ' ORDER BY name ASC';
+
+  const [rows] = await pool.query(query, params);
+  return rows;
+}
 
 // GET /countries/image
 router.get('/image', async (req, res) => {
