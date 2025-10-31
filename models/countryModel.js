@@ -2,25 +2,34 @@
 import { pool } from '../db.js';
 
 // ✅ Ensure "countries" table exists
+// ✅ Drop old table first, then recreate clean one
 export async function ensureCountriesTable() {
-  const createTableSQL = `
-    CREATE TABLE IF NOT EXISTS countries (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(100) UNIQUE,  -- 👈 Make name unique for upsert to work
-      capital VARCHAR(100),
-      region VARCHAR(100),
-      population BIGINT,
-      flag TEXT,
-      currency_code VARCHAR(10),
-      currency_name VARCHAR(100),
-      currency_symbol VARCHAR(10),
-      estimated_gdp DOUBLE,
-      last_refreshed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    );
-  `;
-  await pool.query(createTableSQL);
-  console.log('✅ Table "countries" ready');
+  try {
+    console.log('🧹 Dropping old "countries" table (if exists)...');
+    await pool.query('DROP TABLE IF EXISTS countries');
+
+    const createTableSQL = `
+      CREATE TABLE countries (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) UNIQUE,
+        capital VARCHAR(100),
+        region VARCHAR(100),
+        population BIGINT,
+        flag TEXT,
+        currency_code VARCHAR(10),
+        currency_name VARCHAR(100),
+        currency_symbol VARCHAR(10),
+        estimated_gdp DOUBLE,
+        last_refreshed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      );
+    `;
+    await pool.query(createTableSQL);
+    console.log('✅ Table "countries" dropped and recreated successfully');
+  } catch (err) {
+    console.error('❌ Error recreating countries table:', err.message);
+  }
 }
+
 
 // ✅ Bulk insert or update countries
 export async function upsertCountriesBulk(countries) {
