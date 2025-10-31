@@ -1,7 +1,7 @@
 // services/refreshService.js
 import axios from 'axios';
 import { upsertCountriesBulk } from '../models/countryModel.js';
-import Jimp from 'jimp';
+import * as Jimp from 'jimp';
 import fs from 'fs';
 
 const IMAGE_PATH = process.env.SUMMARY_IMAGE_PATH || 'cache/summary.png';
