@@ -38,6 +38,12 @@ const PORT = process.env.PORT || 8080;
 // ✅ Wait before connecting to MySQL so Railway DB can boot up
 app.listen(PORT, async () => {
   console.log(`🚀 Server listening on port ${PORT}`);
+  // 🛡️ Prevent Railway from stopping the app
+process.on('SIGTERM', () => {
+  console.log('🛑 Received SIGTERM. Graceful shutdown started...');
+});
+
+setInterval(() => {}, 1000); // Keeps event loop alive
   try {
     await new Promise(resolve => setTimeout(resolve, 5000)); // wait 5 seconds
     await pool.query(`
@@ -57,9 +63,3 @@ app.listen(PORT, async () => {
     console.error('❌ Error ensuring countries table:', err.message);
   }
 });
-// Prevent Railway from killing the app
-process.on('SIGTERM', () => {
-  console.log('👋 Received SIGTERM. Shutting down gracefully...');
-});
-
-setInterval(() => {}, 1 << 30); // keep Node.js event loop active
