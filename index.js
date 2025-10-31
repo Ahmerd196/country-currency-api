@@ -1,69 +1,4 @@
-// import express from 'express';
-// import dotenv from 'dotenv';
-// import morgan from 'morgan';
-// import helmet from 'helmet';
-// import cors from 'cors';
-// import { pool } from './db.js';
-// import countriesRouter from './routes/countries.js';
-
-// dotenv.config();
-// const app = express();
-// app.set('etag', false);
-
-// app.use(helmet());
-// app.use(cors());
-// app.use(morgan('dev'));
-// app.use(express.json());
-
-// // Routes
-// app.use('/countries', countriesRouter);
-
-// // Root status redirect
-// app.get('/status', (req, res) => {
-//   res.redirect('/countries/status/info');
-// });
-
-// // Default root route (so Railway knows app is alive)
-// app.get('/', (req, res) => {
-//   res.json({ message: '🌍 Country Currency API is running successfully!' });
-// });
-
-// // Global 404
-// app.use((req, res) => {
-//   res.status(404).json({ error: 'Not found' });
-// });
-
-// const PORT = process.env.PORT || 8080;
-
-// // ✅ Wait before connecting to MySQL so Railway DB can boot up
-// app.listen(PORT, async () => {
-//   console.log(`🚀 Server listening on port ${PORT}`);
-//   // 🛡️ Prevent Railway from stopping the app
-// process.on('SIGTERM', () => {
-//   console.log('🛑 Received SIGTERM. Graceful shutdown started...');
-// });
-
-// setInterval(() => {}, 1000); // Keeps event loop alive
-//   try {
-//     await new Promise(resolve => setTimeout(resolve, 5000)); // wait 5 seconds
-//     await pool.query(`
-//       CREATE TABLE IF NOT EXISTS countries (
-//         id INT AUTO_INCREMENT PRIMARY KEY,
-//         name VARCHAR(255),
-//         code VARCHAR(10),
-//         capital VARCHAR(255),
-//         population BIGINT,
-//         estimated_gdp DECIMAL(20,2),
-//         currency VARCHAR(50),
-//         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-//       )
-//     `);
-//     console.log('✅ Table "countries" ready');
-//   } catch (err) {
-//     console.error('❌ Error ensuring countries table:', err.message);
-//   }
-// });
-
+// index.js
 import express from 'express';
 import dotenv from 'dotenv';
 import morgan from 'morgan';
@@ -81,46 +16,53 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 
-// ✅ Ensure table exists
-(async () => {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS countries (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255),
-        code VARCHAR(10),
-        capital VARCHAR(255),
-        population BIGINT,
-        estimated_gdp DECIMAL(20,2),
-        currency VARCHAR(50),
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table "countries" ready');
-  } catch (err) {
-    console.error('❌ Error ensuring countries table:', err);
-  }
-})();
-
 app.use('/countries', countriesRouter);
 
-// Health/status endpoint (Railway uses this to verify uptime)
+// Health/status endpoint must NOT depend on DB
 app.get('/status', (req, res) => {
-  res.json({ message: 'Server is alive', timestamp: new Date().toISOString() });
+  return res.status(200).json({ message: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Global 404
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
+// root quick check too
+app.get('/', (req, res) => res.json({ message: 'alive' }));
+
+// 404
+app.use((req, res) => res.status(404).json({ error: 'Not found' }));
+
+const PORT = Number(process.env.PORT) || 8080;
+
+// Start listening immediately so Railway healthchecks get a response ASAP
+app.listen(PORT, async () => {
+  console.log(`🚀 Server listening on port ${PORT}`);
+
+  // graceful error logging
+  process.on('unhandledRejection', (r) => console.error('UNHANDLED REJECTION', r));
+  process.on('uncaughtException', (e) => console.error('UNCAUGHT EXCEPTION', e));
+
+  // Delay DB work so DB container can spin up (avoid blocking healthchecks)
+  setTimeout(async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS countries (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(255) UNIQUE,
+          capital VARCHAR(255),
+          region VARCHAR(100),
+          population BIGINT,
+          flag TEXT,
+          currency_code VARCHAR(10),
+          currency_name VARCHAR(100),
+          currency_symbol VARCHAR(10),
+          estimated_gdp DOUBLE,
+          last_refreshed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Table "countries" ready');
+    } catch (err) {
+      console.error('❌ Error ensuring countries table:', err && (err.stack || err.message));
+    }
+  }, 5000); // wait 5s (adjust to 10s if needed)
 });
 
-// 🚀 Start server
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server listening on port ${PORT}`));
-
-// 🛡️ Prevent Railway shutdown
-process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM received. Gracefully shutting down...');
-});
-
-setInterval(() => {}, 1000); // Keeps Node process alive
+// keep Node loop alive (defensive)
+setInterval(() => {}, 1000);
