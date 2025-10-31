@@ -34,6 +34,45 @@ router.get('/', async (req, res) => {
   }
 });
 
+/**
+ * GET /countries
+ * Optional filters:
+ *   - region (e.g., /countries?region=Africa)
+ *   - currency (e.g., /countries?currency=USD)
+ *   - both (e.g., /countries?region=Asia&currency=CNY)
+ */
+router.get('/', async (req, res) => {
+  try {
+    const { region, currency } = req.query;
+
+    let query = 'SELECT * FROM countries WHERE 1=1';
+    const params = [];
+
+    if (region) {
+      query += ' AND region = ?';
+      params.push(region);
+    }
+
+    if (currency) {
+      query += ' AND currency_code = ?';
+      params.push(currency);
+    }
+
+    query += ' ORDER BY name ASC';
+
+    const [rows] = await pool.query(query, params);
+
+    if (!rows.length) {
+      return res.status(404).json({ message: 'No countries found for given filters' });
+    }
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching countries:', err);
+    res.status(500).json({ error: 'Internal server error', details: err.message });
+  }
+})
+
 // GET /countries/image
 router.get('/image', async (req, res) => {
   try {
