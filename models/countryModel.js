@@ -4,7 +4,7 @@ import { pool } from '../db.js';
 export async function ensureCountriesTable() {
   try {
     console.log('🧹 Dropping old "countries" table (if exists)...');
-    await pool.query('DROP TABLE IF EXISTS countries');
+    // await pool.query('DROP TABLE IF EXISTS countries');
 
     const createTableSQL = `
       CREATE TABLE countries (
