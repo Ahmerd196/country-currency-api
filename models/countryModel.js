@@ -3,11 +3,11 @@ import { pool } from '../db.js';
 // ✅ Ensure "countries" table exists
 export async function ensureCountriesTable() {
   try {
-    console.log('🧹 Dropping old "countries" table (if exists)...');
+    console.log('🧹 checking "countries" table (if exists)...');
     // await pool.query('DROP TABLE IF EXISTS countries');
 
     const createTableSQL = `
-      CREATE TABLE countries (
+      CREATE TABLE IF NOT EXISTS countries (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) UNIQUE,
         capital VARCHAR(100),
@@ -22,9 +22,9 @@ export async function ensureCountriesTable() {
       );
     `;
     await pool.query(createTableSQL);
-    console.log('✅ Table "countries" dropped and recreated successfully');
+    console.log('✅ Table "countries" created successfully');
   } catch (err) {
-    console.error('❌ Error recreating countries table:', err.message);
+    console.error('❌ Error creating countries table:', err.message);
   }
 }
 
